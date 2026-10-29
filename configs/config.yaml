@@ -1,0 +1,13 @@
+# Configuración del proyecto ProyectoMLOps_Carvajal_Torres
+# Aquí se guardan los datos que pueden cambiar (rutas, nombres),
+# para no escribirlos "a mano" dentro del código.
+
+data:
+  # Ruta del CSV, relativa a la carpeta raíz del proyecto
+  path: data/AI_Job_Market_Dataset.csv
+  # Fuente original del dataset
+  source: https://www.kaggle.com/datasets/shree0910/ai-and-data-science-job-market-dataset-20202026
+
+mlflow:
+  # Nombre del experimento donde se registran los runs de este proyecto
+  experiment_name: mercado-laboral-ia
