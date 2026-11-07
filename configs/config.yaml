@@ -1,13 +1,66 @@
-# Configuración del proyecto ProyectoMLOps_Carvajal_Torres
-# Aquí se guardan los datos que pueden cambiar (rutas, nombres),
-# para no escribirlos "a mano" dentro del código.
+# Configuración del proyecto ProyectoMLOps_Carvajal_Torres (actividad 2).
+# Todo lo que puede cambiar vive aquí, NO en el código.
+# Las rutas son relativas a la carpeta raíz del proyecto.
 
-data:
-  # Ruta del CSV, relativa a la carpeta raíz del proyecto
-  path: data/AI_Job_Market_Dataset.csv
-  # Fuente original del dataset
-  source: https://www.kaggle.com/datasets/shree0910/ai-and-data-science-job-market-dataset-20202026
+datos:
+  ruta: data/AI_Job_Market_Dataset.csv
+  fuente: https://www.kaggle.com/datasets/shree0910/ai-and-data-science-job-market-dataset-20202026
+
+# Qué queremos predecir: si una vacante ofrece "salario alto".
+# salario_alto = 1 si salary >= umbral_salario; 0 si no.
+# 113000 es aproximadamente la mediana: la mitad de las vacantes queda en cada clase.
+objetivo:
+  columna_origen: salary
+  umbral_salario: 113000
+  nombre: salario_alto
+
+division:
+  test_size: 0.2        # 20 % de los datos para evaluar el modelo
+  random_state: 42      # semilla: con la misma semilla, la división es siempre igual
+
+# Modelo que se entrena. Opciones de "tipo":
+#   logistic_regression | random_forest | gradient_boosting
+modelo:
+  tipo: logistic_regression
+  parametros:
+    C: 1.0
+    max_iter: 1000
+
+# Ejemplos para cambiar de modelo (copiar en lugar de la sección "modelo" de arriba):
+#
+# modelo:
+#   tipo: random_forest
+#   parametros:
+#     n_estimators: 200
+#     max_depth: 10
+#     random_state: 42
+#
+# modelo:
+#   tipo: gradient_boosting
+#   parametros:
+#     n_estimators: 200
+#     learning_rate: 0.05
+#     max_depth: 3
+#     random_state: 42
+
+metricas:
+  umbral: 0.5           # probabilidad a partir de la cual se predice salario_alto = 1
 
 mlflow:
-  # Nombre del experimento donde se registran los runs de este proyecto
-  experiment_name: mercado-laboral-ia
+  tracking_uri: http://localhost:5000   # MLFLOW_TRACKING_URI, si existe, tiene prioridad
+  experimento: mercado-laboral-ia
+  nombre_run: entrenamiento-salario
+
+# Reglas para que un modelo pase a ser champion.
+registro:
+  nombre_modelo: modelo-salario-alto   # nombre en el Model Registry de MLflow
+  umbral_auc: 0.65                     # AUC mínimo para poder ser champion
+  mejora_minima: 0.001                 # cuánto debe superar el AUC del champion actual
+
+inferencia:
+  tamano_lote: 100                     # vacantes "nuevas" que se puntúan en cada ejecución
+  carpeta_salida: data/predicciones    # aquí se guardan los CSV de predicciones (no se suben a Git)
+
+despliegue:
+  cron_inferencia: "0 6 * * *"         # minuto 0, hora 6, todos los días -> 06:00 a. m.
+  zona_horaria: America/Bogota         # hora de Colombia

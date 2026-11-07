@@ -1,0 +1,18 @@
+# Selección de variables del experimento.
+# Cambia "seleccion" para elegir qué variables usa el modelo:
+#   ALL     -> todas las variables, numéricas y categóricas
+#   NUMERIC -> solo las variables numéricas
+#   CUSTOM  -> solo las variables listadas en "custom"
+#
+# Nunca se usan: job_id (es un identificador) ni salary (de ella sale la respuesta).
+
+seleccion: NUMERIC
+
+# Solo se usa cuando seleccion es CUSTOM.
+# Los nombres deben ser EXACTAMENTE iguales a las columnas del CSV.
+custom:
+  - job_title
+  - experience_level
+  - years_experience
+  - country
+  - company_size

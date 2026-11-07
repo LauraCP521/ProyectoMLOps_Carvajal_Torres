@@ -52,11 +52,11 @@ def load_data(ruta_csv: str | Path | None = None) -> pd.DataFrame:
     """
     Carga el CSV y valida sus columnas.
 
-    Si no se indica ruta_csv, usa la ruta escrita en configs/config.yaml.
+    Si no se indica ruta_csv, usa la ruta escrita en configs/config.yaml (datos -> ruta).
     """
     if ruta_csv is None:
         config = leer_config()
-        ruta_csv = RAIZ_PROYECTO / config["data"]["path"]
+        ruta_csv = RAIZ_PROYECTO / config["datos"]["ruta"]
 
     ruta_csv = Path(ruta_csv)
 
@@ -64,8 +64,7 @@ def load_data(ruta_csv: str | Path | None = None) -> pd.DataFrame:
     if not ruta_csv.exists():
         raise FileNotFoundError(
             f"No se encontró el dataset en: {ruta_csv}\n"
-            "Descárgalo de Kaggle y guárdalo en la carpeta data/ "
-            "(ver README)."
+            "Descárgalo de Kaggle y guárdalo en la carpeta data/ (ver README)."
         )
 
     # 2. Leer el CSV
