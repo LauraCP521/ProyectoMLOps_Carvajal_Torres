@@ -6,7 +6,7 @@
 #
 # Nunca se usan: job_id (es un identificador) ni salary (de ella sale la respuesta).
 
-seleccion: NUMERIC
+seleccion: ALL
 
 # Solo se usa cuando seleccion es CUSTOM.
 # Los nombres deben ser EXACTAMENTE iguales a las columnas del CSV.
