@@ -175,3 +175,48 @@ Respuesta:
 ```powershell
 poetry run pytest
 ```
+
+## Actividad 3: monitoreo, drift y CI
+
+### Drift emulado en la inferencia
+
+La pipeline de inferencia toma un lote de 500 vacantes de la **parte de prueba** (la misma división del entrenamiento) y le aplica un drift emulado. El nivel se define en `configs/config.yaml`, en `inferencia.nivel_drift` (de 0.0 a 1.0); no se pasa al ejecutar. La lógica está en `src/monitoreo.py` (`aplicar_drift`).
+
+| Nivel | Variables alteradas | Tasa de `salario_alto` |
+| --- | --- | --- |
+| 0.0 | ninguna | sin cambio (≈ 50 %) |
+| 0.3 | `years_experience`, `skills_python`, `skills_ml` | +9 puntos |
+| 0.6 | las anteriores + `skills_cloud`, `job_openings` | +18 puntos |
+
+- Variables binarias (`skills_*`): la mitad de las vacantes que no pedían la habilidad pasan a pedirla.
+- Variables numéricas: se suman 2 desviaciones estándar (más años de experiencia, más vacantes abiertas).
+- Objetivo: vacantes con 0 pasan a 1 al azar hasta subir la tasa `nivel × 30` puntos. El lote trae sus etiquetas reales.
+
+Cada ejecución guarda una copia del lote en `data/lotes/lote_<fecha-hora>_nivel_<n>.csv` y en `data/lotes/lote_actual.csv`, que leen los flows de drift.
+
+### Detección de drift
+
+```powershell
+poetry run python flows/inferencia_flow.py      # puntúa un lote con el nivel de config.yaml
+poetry run python flows/drift_features_flow.py  # Evidently: reporte HTML en reports/ y alerta
+poetry run python flows/drift_evento_flow.py    # drift del objetivo (chi-cuadrado) y alerta
+```
+
+- **Drift de features** (`drift-features`): Evidently `DataDriftPreset` compara las 17 variables del lote con las de entrenamiento. Guarda `reports/drift_features_nivel_<n>_<fecha-hora>.html`. Alerta si la fracción de variables con drift supera `monitoreo.umbral_drift` (0.25).
+- **Drift de evento** (`drift-evento`): prueba chi-cuadrado entre la tasa de `salario_alto` del lote y la de entrenamiento. Rechaza los lotes sin etiquetas. Alerta si el p-valor es menor que `monitoreo.alfa_evento` (0.05).
+
+Resultados de referencia:
+
+| Nivel | Variables con drift | Alerta features | Tasa del lote | p-valor | Alerta evento |
+| --- | --- | --- | --- | --- | --- |
+| 0.0 | 5,9 % (1 de 17) | No | 47,8 % | 0,3388 | No |
+| 0.3 | 17,6 % (3 de 17) | No | 56,8 % | 0,0042 | Sí |
+| 0.6 | 29,4 % (5 de 17) | Sí | 65,8 % | < 0,0001 | Sí |
+
+### Tests
+
+```powershell
+poetry run pytest
+```
+
+41 tests sin servicios encendidos: datos (`test_datos.py`), modelo (`test_modelo.py`), inferencia (`test_inferencia.py`), API con un modelo falso (`test_api.py`) y drift (`test_monitoreo.py`). El workflow `.github/workflows/ci.yml` los ejecuta en GitHub en cada pull request.
