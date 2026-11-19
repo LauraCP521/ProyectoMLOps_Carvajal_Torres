@@ -1,0 +1,29 @@
+# Integración continua (CI): GitHub ejecuta los tests en cada pull request y en cada push a main.
+# Actividad 3 (opcional). Se ve en la pestaña "Actions" del repositorio.
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar el código del repositorio
+        uses: actions/checkout@v4
+
+      - name: Instalar Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar Poetry
+        run: pip install poetry
+
+      - name: Instalar dependencias desde poetry.lock
+        run: poetry install --no-interaction
+
+      - name: Ejecutar los tests
+        run: poetry run pytest -v
