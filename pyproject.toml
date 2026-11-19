@@ -15,7 +15,9 @@ dependencies = [
     "numpy (==2.5.4)",
     "pyyaml (==6.0.3)",
     "fastapi (==0.143.0)",
-    "uvicorn (==0.54.0)"
+    "uvicorn (==0.54.0)",
+    "evidently (==0.7.23)",
+    "scipy (==1.18.1)"
 ]
 
 
@@ -26,5 +28,6 @@ build-backend = "poetry.core.masonry.api"
    package-mode = false
 [dependency-groups]
 dev = [
-    "pytest (==9.1.1)"
+    "pytest (==9.1.1)",
+    "httpx (==0.28.1)"
 ]

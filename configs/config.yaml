@@ -58,8 +58,19 @@ registro:
   mejora_minima: 0.001                 # cuánto debe superar el AUC del champion actual
 
 inferencia:
-  tamano_lote: 100                     # vacantes "nuevas" que se puntúan en cada ejecución
+  tamano_lote: 500                     # vacantes que se puntúan en cada ejecución (tomadas de la parte de PRUEBA)
   carpeta_salida: data/predicciones    # aquí se guardan los CSV de predicciones (no se suben a Git)
+  # Actividad 3: drift emulado. Nivel de 0.0 (sin drift) a 1.0 (drift máximo). Se usan 0.0, 0.3 y 0.6.
+  # Se cambia AQUÍ, no al ejecutar la pipeline. Qué hace cada nivel: ver src/monitoreo.py (aplicar_drift).
+  nivel_drift: 0.0
+
+# Actividad 3: monitoreo de drift.
+monitoreo:
+  carpeta_lotes: data/lotes            # copia de cada lote puntuado (no se sube a Git)
+  lote_actual: data/lotes/lote_actual.csv   # último lote puntuado; lo leen los flows de drift
+  carpeta_reportes: reports            # reportes HTML de Evidently (no se suben a Git)
+  umbral_drift: 0.25                   # alerta si más del 25 % de las variables tiene drift
+  alfa_evento: 0.05                    # alerta de drift del target si el p-valor es menor que 0.05
 
 despliegue:
   cron_inferencia: "0 6 * * *"         # minuto 0, hora 6, todos los días -> 06:00 a. m.
