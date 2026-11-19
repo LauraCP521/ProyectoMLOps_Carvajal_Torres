@@ -31,13 +31,13 @@ from mlflow.exceptions import MlflowException  # noqa: E402
 from mlflow.models import infer_signature  # noqa: E402
 from mlflow.tracking import MlflowClient  # noqa: E402
 from prefect import flow, task  # noqa: E402
-from sklearn.model_selection import train_test_split  # noqa: E402
 
 from src.load_data import leer_config, load_data  # noqa: E402
 from src.modelo import (  # noqa: E402
     calcular_metricas,
     construir_modelo,
-    crear_objetivo,
+    dividir,
+    importancia_variables,
     leer_features,
     resolver_features,
 )
@@ -46,26 +46,18 @@ from src.modelo import (  # noqa: E402
 # ---------------------------------------------------------------- 1. INGESTA
 @task(name="ingesta")
 def ingesta(cfg):
-    """Carga el CSV, crea la variable objetivo y divide en entrenamiento y prueba."""
+    """Carga el CSV, crea la variable objetivo y divide en entrenamiento y prueba (src/modelo.py: dividir)."""
     df = load_data()
     print(f"Datos cargados: {df.shape[0]} filas y {df.shape[1]} columnas")
 
-    y = crear_objetivo(df, cfg["objetivo"])
+    objetivo = cfg["objetivo"]["nombre"]
+    entrenamiento_df, prueba_df = dividir(df, cfg["objetivo"], cfg["division"])
     print(
-        f"Objetivo '{cfg['objetivo']['nombre']}': salary >= {cfg['objetivo']['umbral_salario']} "
-        f"-> {y.mean():.1%} de las vacantes tienen salario alto"
+        f"Objetivo '{objetivo}': salary >= {cfg['objetivo']['umbral_salario']} "
+        f"-> {entrenamiento_df[objetivo].mean():.1%} de las vacantes de entrenamiento tienen salario alto"
     )
-
-    division = cfg["division"]
-    X_train, X_test, y_train, y_test = train_test_split(
-        df,
-        y,
-        test_size=division["test_size"],
-        random_state=division["random_state"],
-        stratify=y,
-    )
-    print(f"Entrenamiento: {len(X_train)} filas | Prueba: {len(X_test)} filas")
-    return X_train, X_test, y_train, y_test
+    print(f"Entrenamiento: {len(entrenamiento_df)} filas | Prueba: {len(prueba_df)} filas")
+    return entrenamiento_df, prueba_df, entrenamiento_df[objetivo], prueba_df[objetivo]
 
 
 # ---------------------------------------------------------- 2. ENTRENAMIENTO
@@ -95,12 +87,18 @@ def evaluacion(modelo, X_test, y_test, variables, cfg):
     metricas = calcular_metricas(y_test, probabilidad, cfg["metricas"]["umbral"])
     for nombre, valor in metricas.items():
         print(f"  {nombre}: {valor:.4f}")
-    return metricas
+
+    # Actividad 3 (retroalimentación del profesor): ¿de qué variables depende el modelo?
+    importancia = importancia_variables(modelo, X_test[variables], y_test, cfg["division"]["random_state"])
+    print("Variables más importantes (caída del AUC al desordenarlas):")
+    for fila in importancia.head(5).itertuples():
+        print(f"  {fila.variable}: {fila.caida_auc_media:.4f}")
+    return metricas, importancia
 
 
 # --------------------------------------------------------------- 4. REGISTRO
 @task(name="registro")
-def registro(modelo, X_test, variables, alias, metricas, cfg):
+def registro(modelo, X_test, variables, alias, metricas, importancia, cfg):
     """Guarda el run en MLflow y decide si el modelo pasa a ser champion."""
     mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI", cfg["mlflow"]["tracking_uri"]))
     mlflow.set_experiment(cfg["mlflow"]["experimento"])
@@ -122,6 +120,7 @@ def registro(modelo, X_test, variables, alias, metricas, cfg):
             }
         )
         mlflow.log_metrics(metricas)
+        mlflow.log_text(importancia.to_csv(index=False), "importancia_variables.csv")
         ejemplo = X_test[variables].head(3)
         info = mlflow.sklearn.log_model(
             modelo,
@@ -179,8 +178,8 @@ def entrenamiento_flow():
 
     X_train, X_test, y_train, y_test = ingesta(cfg)
     modelo, alias, variables = entrenamiento(X_train, y_train, cfg, cfg_features)
-    metricas = evaluacion(modelo, X_test, y_test, variables, cfg)
-    version = registro(modelo, X_test, variables, alias, metricas, cfg)
+    metricas, importancia = evaluacion(modelo, X_test, y_test, variables, cfg)
+    version = registro(modelo, X_test, variables, alias, metricas, importancia, cfg)
 
     if version is None:
         print("Resultado: run guardado, el champion no cambió")

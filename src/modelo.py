@@ -12,6 +12,7 @@ import pandas as pd
 import yaml
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
+from sklearn.inspection import permutation_importance
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
     accuracy_score,
@@ -20,6 +21,7 @@ from sklearn.metrics import (
     recall_score,
     roc_auc_score,
 )
+from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
@@ -56,6 +58,23 @@ def crear_objetivo(df: pd.DataFrame, cfg_objetivo: dict) -> pd.Series:
     """Devuelve 1 si la vacante tiene salario alto (salary >= umbral) y 0 si no."""
     salario = df[cfg_objetivo["columna_origen"]]
     return (salario >= cfg_objetivo["umbral_salario"]).astype(int)
+
+
+def dividir(df: pd.DataFrame, cfg_objetivo: dict, cfg_division: dict):
+    """
+    Agrega la columna objetivo y parte los datos en (entrenamiento, prueba).
+
+    La usan el entrenamiento, la inferencia y los flows de drift, para que TODOS
+    vean exactamente la misma división (misma semilla, misma estratificación).
+    """
+    datos = df.copy()
+    datos[cfg_objetivo["nombre"]] = crear_objetivo(datos, cfg_objetivo)
+    return train_test_split(
+        datos,
+        test_size=cfg_division["test_size"],
+        random_state=cfg_division["random_state"],
+        stratify=datos[cfg_objetivo["nombre"]],
+    )
 
 
 def leer_features(ruta: Path = RUTA_FEATURES) -> dict:
@@ -124,3 +143,23 @@ def calcular_metricas(y_real, probabilidad, umbral: float) -> dict:
         "recall": float(recall_score(y_real, prediccion, zero_division=0)),
         "f1": float(f1_score(y_real, prediccion, zero_division=0)),
     }
+
+
+def importancia_variables(modelo, X, y, semilla: int = 42, repeticiones: int = 5) -> pd.DataFrame:
+    """
+    Importancia por permutación de cada variable de entrada (alternativa a SHAP, sin dependencias nuevas).
+
+    Desordena una variable a la vez y mide cuánto baja el AUC. Si baja mucho, el modelo depende
+    mucho de esa variable. Devuelve una tabla ordenada de mayor a menor importancia.
+    """
+    resultado = permutation_importance(
+        modelo, X, y, scoring="roc_auc", n_repeats=repeticiones, random_state=semilla
+    )
+    tabla = pd.DataFrame(
+        {
+            "variable": list(X.columns),
+            "caida_auc_media": resultado.importances_mean,
+            "caida_auc_desviacion": resultado.importances_std,
+        }
+    )
+    return tabla.sort_values("caida_auc_media", ascending=False).reset_index(drop=True)
